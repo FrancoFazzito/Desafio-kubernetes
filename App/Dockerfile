@@ -1,30 +1,33 @@
-FROM node:18-alpine AS deps
-
-WORKDIR /app
-
-COPY package.json ./
-RUN npm install
-
+# Etapa 1: Construcción
 FROM node:18-alpine AS builder
 
+# Establecer directorio de trabajo
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
+# Copiar los archivos necesarios para instalar dependencias
+COPY package*.json ./
+
+# Instalar dependencias
+RUN npm install
+
+# Copiar el resto del código fuente
 COPY . .
 
+# Compilar TypeScript a JavaScript
 RUN npm run build
 
-ENV NODE_ENV=production
-RUN npm ci --only=production \
-    && npm cache clean --force
+# Etapa 2: Imagen final
+FROM node:18-alpine
 
-FROM node:18-alpine AS runner
-
+# Establecer directorio de trabajo
 WORKDIR /app
 
-COPY --from=builder --chown=node:node /app/dist ./dist
-COPY --from=builder --chown=node:node /app/node_modules ./node_modules
+# Copiar solo los archivos necesarios desde la etapa de construcción
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
 
-USER node
+# Exponer el puerto de la aplicación
+EXPOSE 3000
 
+# Comando por defecto para ejecutar la aplicación
 CMD ["node", "dist/main.js"]
